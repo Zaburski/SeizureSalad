@@ -1,0 +1,32 @@
+pip install pyedflib
+pip install mne
+
+import pyedflib
+import numpy as np
+
+# Load EDF file
+edf = pyedflib.EdReader("example.edf")
+
+# Get basic info
+n = edf.signals_in_file
+signal_labels = edf.getSignalLabels()
+sample_frequency = edf.getSampleFrequencies()
+
+# Read all signals
+signals = np.vstack([edf.readSignal(i) for i in range(n)])
+
+edf.close()
+
+print("Channels:", signal_labels)
+print("Date shape:", signals.shape)
+
+import mne
+
+raw = mne.io.read_raw_edf("example.edf", preload=True)
+print(raw.info)
+data, times = raw.get_data(return_times=True)
+
+# Plot signals
+raw.plot()
+
+raw.export("output.csv", fmt='auto')
