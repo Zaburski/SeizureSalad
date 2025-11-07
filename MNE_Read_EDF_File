@@ -1,0 +1,12 @@
+pip install mne
+
+import mne
+
+raw = mne.io.read_raw_edf("example.edf", preload=True)
+print(raw.info)
+data, times = raw.get_data(return_times=True)
+
+# Plot signals
+raw.plot()
+
+raw.export("output.csv", fmt='auto')
