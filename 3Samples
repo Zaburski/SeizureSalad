@@ -1,0 +1,118 @@
+!pip install mne numpy pandas scipy scikit-learn matplotlib
+
+import os
+import mne
+import pandas as pd
+import numpy as np
+from scipy.signal import welch
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+
+# ===== 1. Folder with all EDF/TXT files =====
+data_folder = r"C:\Users\alexa\anaconda_projects"  # change this
+edf_files = [f for f in os.listdir(data_folder) if f.endswith("_eeg.edf")]
+
+all_features = []
+all_labels = []
+
+# ===== 2. Functions =====
+def window_is_seizure(start_time, end_time, events):
+    for _, row in events.iterrows():
+        evt_start = row["onset"]
+        evt_end = row["onset"] + row["duration"]
+        if str(row.get("eventtype", "")).lower() == "seizure":
+            if not (end_time < evt_start or start_time > evt_end):
+                return 1
+    return 0
+
+def compute_bandpower(sig, sf, band):
+    fmin, fmax = band
+    freqs, psd = welch(sig, sf, nperseg=256)
+    idx = np.logical_and(freqs >= fmin, freqs <= fmax)
+    return psd[idx].mean()
+
+def extract_features(segment, sf):
+    feats = []
+    bands = {
+        "delta": (1, 4),
+        "theta": (4, 8),
+        "alpha": (8, 12),
+        "beta": (12, 30),
+        "gamma": (30, 40),
+    }
+    for ch in segment:
+        ch_feats = []
+        for band in bands.values():
+            ch_feats.append(compute_bandpower(ch, sf, band))
+        ch_feats.append(np.mean(np.abs(np.diff(ch))))  # line length
+        ch_feats.append(np.var(ch))                    # variance
+        feats.extend(ch_feats)
+    return np.array(feats)
+
+# ===== 3. Process each subject =====
+window_sec = 5  # 5-second windows
+for edf_file in edf_files:
+    edf_path = os.path.join(data_folder, edf_file)
+    txt_file = edf_file.replace("_eeg.edf", "_events.txt")
+    txt_path = os.path.join(data_folder, txt_file)
+
+    # Load EEG
+    raw = mne.io.read_raw_edf(edf_path, preload=True)
+    raw.pick_types(eeg=True)
+    sfreq = raw.info["sfreq"]
+    data, times = raw.get_data(return_times=True)
+
+    # Load events
+    events_df = pd.read_csv(txt_path, sep="\t")
+    events_df.columns = events_df.columns.str.strip().str.lower()  # normalize
+
+    # Sliding window feature extraction
+    window_samples = int(window_sec * sfreq)
+    for start in range(0, data.shape[1] - window_samples, window_samples):
+        segment = data[:, start:start + window_samples]
+        feats = extract_features(segment, sfreq)
+        all_features.append(feats)
+
+        t_start = times[start]
+        t_end = times[start + window_samples - 1]
+        label = window_is_seizure(t_start, t_end, events_df)
+        all_labels.append(label)
+
+# ===== 4. Convert to numpy arrays =====
+X = np.array(all_features)
+y = np.array(all_labels)
+
+print("Feature shape:", X.shape)
+print("Total seizure windows:", np.sum(y))
+
+# ===== 5. Train/test split =====
+if len(np.unique(y)) > 1:  # make sure there are seizure windows
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    # ===== 6. Train classifier =====
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(X_train, y_train)
+
+    # ===== 7. Evaluate accuracy =====
+    y_pred = clf.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"Test Accuracy: {accuracy*100:.2f}%")
+
+    # ===== 8. Optional: plot seizure probability =====
+    if len(clf.classes_) > 1:
+        probs = clf.predict_proba(X)[:, 1]
+    else:
+        probs = np.zeros(X.shape[0])
+
+    plt.figure(figsize=(14,4))
+    plt.plot(probs)
+    plt.title("Predicted seizure probability over all windows")
+    plt.xlabel("Window index")
+    plt.ylabel("Seizure probability")
+    plt.show()
+else:
+    print("No seizure windows found across all subjects. Cannot train classifier.")
