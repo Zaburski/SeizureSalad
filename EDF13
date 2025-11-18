@@ -1,0 +1,82 @@
+!pip install mne numpy pandas scipy scikit-learn matplotlib
+
+import mne
+import pandas as pd
+
+# Paths to your files
+edf_path = r"C:\Users\alexa\anaconda_projects\sub-013_ses-01_task-szMonitoring_run-01_eeg.edf"
+tsv_path = r"C:\Users\alexa\anaconda_projects\sub-013_ses-01_task-szMonitoring_run-01_events.txt"
+
+# Load EEG
+raw = mne.io.read_raw_edf(edf_path, preload=True)
+raw.pick_types(eeg=True)  # only EEG channels
+
+# Load TSV (tab-separated)
+events_df = pd.read_csv(tsv_path, sep="\t")
+print(events_df.head())
+
+import mne
+import numpy as np
+import pandas as pd
+from scipy.signal import welch
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+# -----------------------------------
+# 1. LOAD EDF FILE AND EVENTS TSV
+# -----------------------------------
+edf_path = "sub-013_ses-01_task-szMonitoring_run-01_eeg.edf"
+tsv_path = "sub-013_ses-01_task-szMonitoring_run-01_events.txt"
+
+raw = mne.io.read_raw_edf(edf_path, preload=True)
+raw.pick_types(eeg=True)
+
+# Load TSV events
+events_df = pd.read_csv(tsv_path, sep="\t")
+
+# Expecting columns: onset, duration, trial_type
+print(events_df.head())
+
+# -----------------------------------
+# 2. FILTER EEG
+# -----------------------------------
+raw.filter(1, 40)
+
+data, times = raw.get_data(return_times=True)
+sfreq = raw.info["sfreq"]
+
+# -----------------------------------
+# 3. FEATURE EXTRACTION
+# -----------------------------------
+def compute_bandpower(sig, sf, band):
+    fmin, fmax = band
+    freqs, psd = welch(sig, sf, nperseg=256)
+    idx = np.logical_and(freqs >= fmin, freqs <= fmax)
+    return psd[idx].mean()
+
+def extract_features(segment, sf):
+    feats = []
+
+    bands = {
+        "delta": (1, 4),
+        "theta": (4, 8),
+        "alpha": (8, 12),
+        "beta": (12, 30),
+        "gamma": (30, 40),
+    }
+
+    for ch in segment:
+        ch_feats = []
+
+        # Bandpower features
+        for band in bands.values():
+            ch_feats.append(compute_bandpower(ch, sf, band))
+
+        # Time-domain metrics
+        ch_feats.append(np.mean(np.abs(np.diff(ch))))  # line length
+        ch_feats.append(np.var(ch))                    # variance
+
+        feats.extend(ch_feats)
+
+    return np.array(feats)
