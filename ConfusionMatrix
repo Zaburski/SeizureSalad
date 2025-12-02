@@ -1,0 +1,32 @@
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+y_true = np.array(["seizure", "non_seizure", "seizure", "seizure", "non_seizure"])
+y_pred = np.array(["seizure", "seizure", "seizure", "non_seizure", "non_seizure"])
+
+# Confusion Matrix
+cm = confusion_matrix(y_true, y_pred, labels=["seizure", "non_seizure"])
+print("Confusion Matrix:")
+print(cm)
+
+# Accuracy
+accuracy = accuracy_score(y_true, y_pred)
+print("\nAccuracy:", accuracy)
+
+print("\nClassification Report:")
+print(classification_report(y_true, y_pred, labels=["seizure", "non_seizure"]))
+
+sns.heatmap(cm, annot=True, fmt="d",
+            xticklabels=["seizure", "non_seizure"],
+            yticklabels=["seizure", "non_seizure"],
+            cmap="Blues")
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+error_rate = 1 - accuracy_score(y_test, y_pred)
+print("Error Rate:", error_rate)
