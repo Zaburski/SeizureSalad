@@ -1,4 +1,6 @@
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 
 y_true = np.array(["seizure", "non_seizure", "seizure", "seizure", "non_seizure"])
@@ -15,3 +17,13 @@ print("\nAccuracy:", accuracy)
 
 print("\nClassification Report:")
 print(classification_report(y_true, y_pred, labels=["seizure", "non_seizure"]))
+
+sns.heatmap(cm, annot=True, fmt="d",
+            xticklabels=["seizure", "non_seizure"],
+            yticklabels=["seizure", "non_seizure"],
+            cmap="Blues")
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
