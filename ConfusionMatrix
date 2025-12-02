@@ -4,10 +4,12 @@ import numpy as np
 y_true = np.array(["seizure", "non_seizure", "seizure", "seizure", "non_seizure"])
 y_pred = np.array(["seizure", "seizure", "seizure", "non_seizure", "non_seizure"])
 
+# Confusion Matrix
 cm = confusion_matrix(y_true, y_pred, labels=["seizure", "non_seizure"])
 print("Confusion Matrix:")
 print(cm)
 
+# Accuracy
 accuracy = accuracy_score(y_true, y_pred)
 print("\nAccuracy:", accuracy)
 
