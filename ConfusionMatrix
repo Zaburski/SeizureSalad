@@ -27,3 +27,6 @@ plt.xlabel("Predicted")
 plt.ylabel("Actual")
 plt.title("Confusion Matrix")
 plt.show()
+
+error_rate = 1 - accuracy_score(y_test, y_pred)
+print("Error Rate:", error_rate)
